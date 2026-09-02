@@ -51,9 +51,23 @@ last synced.
    - `users:read`
 4. **Event Subscriptions**: turn on, subscribe to bot events `message.channels`
    (and `message.groups` for private channels).
-5. Install the app to your workspace → copy the **Bot User OAuth Token**
-   (`SLACK_BOT_TOKEN`, starts `xoxb-`) and the **Signing Secret**
-   (`SLACK_SIGNING_SECRET`) from Basic Information.
+5. Install the app to your workspace and copy the **Signing Secret**
+   (`SLACK_SIGNING_SECRET`) from Basic Information. What you get for the bot
+   token depends on whether your app has **Token Rotation** enabled:
+   - **No rotation**: you get a permanent **Bot User OAuth Token**
+     (`SLACK_BOT_TOKEN`, starts `xoxb-`). Set it and leave
+     `SLACK_CLIENT_ID`/`SLACK_CLIENT_SECRET`/`SLACK_REFRESH_TOKEN` blank.
+   - **Rotation enabled** (some newer apps default to this, and once it's on
+     it can't be turned back off): the install page instead shows a
+     short-lived (12h) access token *and* a refresh token. Ignore the 12h
+     token — it'll be expired by the time you need it. Instead set:
+     - `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` from Basic Information → App
+       Credentials
+     - `SLACK_REFRESH_TOKEN` to the refresh token (starts `xoxe-1-...`)
+
+     `src/slackAuth.js` then refreshes the access token automatically in the
+     background, well before each 12-hour expiry, and persists the rotated
+     tokens to `data/slack-token.json` so a restart doesn't need reinstalling.
 6. Invite the bot to the channel: `/invite @YourAppName`.
 
 ### 3. Configure and run
