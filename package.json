@@ -1,7 +1,7 @@
 {
   "name": "slack-task-tracker",
   "version": "1.0.0",
-  "description": "Watches a Slack channel for JIRA links and mirrors ticket details into a Google Sheet tracker.",
+  "description": "Watches a Slack channel for JIRA links and mirrors ticket details onto a live tracker webpage.",
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
@@ -11,7 +11,7 @@
     "@slack/bolt": "^3.19.0",
     "axios": "^1.7.7",
     "dotenv": "^16.4.5",
-    "googleapis": "^140.0.1",
+    "express": "^4.21.0",
     "node-cron": "^3.0.3"
   }
 }

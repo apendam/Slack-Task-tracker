@@ -2,8 +2,9 @@ require("dotenv").config();
 const { App } = require("@slack/bolt");
 const { extractTicketKeys } = require("./parseJira");
 const { getIssue } = require("./jira");
-const { upsertFromSlack } = require("./sheets");
+const { upsertFromSlack } = require("./db");
 const { startSyncJob } = require("./syncStatuses");
+const { startServer } = require("./server");
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -56,7 +57,7 @@ app.message(async ({ message, client, logger }) => {
         continue;
       }
 
-      await upsertFromSlack(issue, { postedBy, slackLink: permalinkResp.permalink });
+      upsertFromSlack(issue, { postedBy, slackLink: permalinkResp.permalink });
       tracked.push(issue);
     } catch (err) {
       logger.error(`Failed to track ${key}: ${err.message}`);
@@ -77,4 +78,5 @@ app.message(async ({ message, client, logger }) => {
   await app.start();
   app.logger.info("Slack Task Tracker is running (Socket Mode)");
   startSyncJob(app.logger);
+  startServer(app.logger);
 })();

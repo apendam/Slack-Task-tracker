@@ -2,10 +2,13 @@
 
 Watches a Slack channel for JIRA links (`ABC-123` or a full
 `https://.../browse/ABC-123` URL). Whenever one is posted, it looks the
-ticket up in JIRA and writes/updates a row in a Google Sheet with the
-summary, status, priority, assignee, reporter, and raised date. A background
-job also re-polls JIRA every N minutes so the sheet's status/assignee stays
+ticket up in JIRA and shows it on a live tracker webpage with summary,
+status, priority, assignee, reporter, and raised date. A background job
+also re-polls JIRA every N minutes so the page's status/assignee stays
 current even if nobody re-posts the link.
+
+No Google account, spreadsheet, or cloud setup required — everything runs
+as one small Node process with data stored in a local JSON file.
 
 ## How it works
 
@@ -13,43 +16,30 @@ current even if nobody re-posts the link.
    the channels you point it at.
 2. When a message contains a JIRA key, `src/jira.js` calls the JIRA REST API
    for that ticket's fields.
-3. `src/sheets.js` appends a new row the first time a ticket is seen, or
-   updates the existing row (status/assignee/etc.) on repeat mentions.
+3. `src/db.js` records a new ticket the first time it's seen, or refreshes
+   it (status/assignee/etc.) on repeat mentions.
 4. `src/syncStatuses.js` runs on a cron schedule and refreshes every tracked
-   ticket, so a status change in JIRA (e.g. "picked up") shows up in the
-   sheet without anyone touching Slack again.
+   ticket, so a status change in JIRA (e.g. "picked up") shows up on the
+   page without anyone touching Slack again.
+5. `src/server.js` serves the dashboard at `http://localhost:3000` (or
+   whatever host/port you deploy it to) — a searchable, sortable, filterable
+   table of every tracked ticket, auto-refreshing every 20 seconds.
 
-## Sheet columns
+## Tracked fields
 
-`Ticket Key | Link | Summary | Status | Priority | Assignee | Reporter | Raised Date | Posted By | Slack Link | Last Synced`
-
-The header row is created automatically on first run if the sheet is empty.
+Ticket key & link, summary, status, priority, assignee, reporter, raised
+date, who posted it in Slack (with a link to the message), and when it was
+last synced.
 
 ## Setup
 
-### 1. Create the Google Sheet
-
-Create a new (or reuse an existing) Google Sheet. Note the spreadsheet ID
-from its URL: `https://docs.google.com/spreadsheets/d/<THIS_PART>/edit`.
-Note the tab name too (e.g. `Tracker`).
-
-### 2. Google service account
-
-1. In [Google Cloud Console](https://console.cloud.google.com/), create (or
-   reuse) a project and enable the **Google Sheets API**.
-2. Create a **Service Account**, then create a JSON key for it and download
-   it as `service-account.json` (keep it out of git — it's already in
-   `.gitignore`).
-3. Open the Google Sheet and **Share** it with the service account's email
-   (looks like `xxx@yyy.iam.gserviceaccount.com`) as **Editor**.
-
-### 3. JIRA API token
+### 1. JIRA API token
 
 1. Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens.
 2. You'll authenticate as `JIRA_EMAIL` + `JIRA_API_TOKEN` (Basic auth), the
    same way `curl -u email:token` works against the JIRA Cloud REST API.
 
-### 4. Slack app
+### 2. Slack app
 
 1. Go to https://api.slack.com/apps → **Create New App** → From scratch.
 2. **Socket Mode**: turn it on, generate an app-level token with the
@@ -66,28 +56,38 @@ Note the tab name too (e.g. `Tracker`).
    (`SLACK_SIGNING_SECRET`) from Basic Information.
 6. Invite the bot to the channel: `/invite @YourAppName`.
 
-### 5. Configure and run
+### 3. Configure and run
 
 ```bash
 npm install
 cp .env.example .env
-# fill in .env with the tokens/IDs from steps 1-4
+# fill in .env with the tokens from steps 1-2
 npm start
 ```
+
+Then open `http://localhost:3000` to see the tracker page.
 
 Leave `TRACK_CHANNEL_IDS` empty to watch every channel the bot is invited
 to, or set it to a comma-separated list of channel IDs to restrict it.
 
-## Deploying so it stays running
+## Deploying so it stays running and is reachable by your team
 
 Socket Mode keeps a persistent connection, so this needs a long-running
 process rather than a serverless function — a small VM, a Railway/Render/
-Fly.io worker, or `pm2`/`systemd` on an internal server all work. No inbound
-webhook or public URL is required.
+Fly.io service, or `pm2`/`systemd` on an internal server all work. No
+inbound webhook is required for Slack, but if you want teammates to open
+the tracker page from their own browsers, deploy it somewhere reachable on
+your network (or a public host) and share that URL — the same process
+serves both the Slack listener and the webpage.
 
-## Alternative: skip Slack, poll JIRA directly
+The ticket data lives in `data/tickets.json` (path configurable via
+`DB_PATH`). Back that file up or mount it on a persistent volume if you
+deploy to a platform with an ephemeral filesystem (e.g. most container
+platforms wipe local disk on redeploy).
 
-If capturing "who posted it in Slack" doesn't matter and you'd rather not
-run a bot, `src/syncStatuses.js` + `src/jira.js` can be run standalone (or
-pointed at a JIRA JQL search instead of the sheet's existing keys) to build
-a pure JIRA → Google Sheet sync with no Slack piece at all.
+## Prefer Google Sheets instead?
+
+Swap `src/db.js` for a Google Sheets-backed version (Sheets API + a
+service account) if you'd rather have the data in a spreadsheet than a
+webpage — the rest of the app (Slack listener, JIRA fetch, cron refresh)
+stays the same either way.

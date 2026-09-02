@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Task Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Task Tracker</h1>
+    <p class="subtitle">JIRA tickets posted in Slack, kept in sync automatically.</p>
+  </header>
+
+  <section class="stats" id="stats"></section>
+
+  <section class="controls">
+    <input id="search" type="search" placeholder="Search key, summary, assignee…" />
+    <select id="statusFilter">
+      <option value="">All statuses</option>
+    </select>
+    <select id="assigneeFilter">
+      <option value="">All assignees</option>
+    </select>
+  </section>
+
+  <div class="table-wrap">
+    <table id="table">
+      <thead>
+        <tr>
+          <th data-key="key">Ticket</th>
+          <th data-key="summary">Summary</th>
+          <th data-key="status">Status</th>
+          <th data-key="priority">Priority</th>
+          <th data-key="assignee">Assignee</th>
+          <th data-key="reporter">Reporter</th>
+          <th data-key="raisedDate">Raised</th>
+          <th data-key="postedBy">Posted By</th>
+          <th data-key="lastSynced">Last Synced</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <p id="empty" class="empty" hidden>No tickets tracked yet — post a JIRA link in Slack to get started.</p>
+
+  <script src="app.js"></script>
+</body>
+</html>
