@@ -1,12 +1,16 @@
 const axios = require("axios");
 
+function baseUrl() {
+  return (process.env.JIRA_BASE_URL || "").replace(/\/+$/, "");
+}
+
 function client() {
   const auth = Buffer.from(
     `${process.env.JIRA_EMAIL}:${process.env.JIRA_API_TOKEN}`
   ).toString("base64");
 
   return axios.create({
-    baseURL: process.env.JIRA_BASE_URL,
+    baseURL: baseUrl(),
     headers: {
       Authorization: `Basic ${auth}`,
       Accept: "application/json",
@@ -16,7 +20,8 @@ function client() {
 
 /**
  * Fetches the fields we mirror into the sheet for a single ticket key.
- * Returns null if the ticket doesn't exist or isn't visible to this account.
+ * Returns null if the ticket doesn't exist or isn't visible to this account
+ * (JIRA returns 404 for both a missing key and one this account can't see).
  */
 async function getIssue(key) {
   try {
@@ -26,7 +31,7 @@ async function getIssue(key) {
 
     return {
       key: data.key,
-      url: `${process.env.JIRA_BASE_URL}/browse/${data.key}`,
+      url: `${baseUrl()}/browse/${data.key}`,
       summary: data.fields.summary || "",
       status: data.fields.status?.name || "",
       priority: data.fields.priority?.name || "",
@@ -35,7 +40,7 @@ async function getIssue(key) {
       created: data.fields.created ? data.fields.created.slice(0, 10) : "",
     };
   } catch (err) {
-    if (err.response?.status === 404) return null;
+    if (err.response?.status === 404 || err.response?.status === 403) return null;
     throw err;
   }
 }

@@ -6,7 +6,16 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, "..", "data", "ticke
 function load() {
   if (!fs.existsSync(DB_PATH)) return {};
   const raw = fs.readFileSync(DB_PATH, "utf8").trim();
-  return raw ? JSON.parse(raw) : {};
+  if (!raw) return {};
+
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    // A hand-edited or partially-written file shouldn't wedge every future
+    // message and cron tick - fail safe to an empty store instead.
+    console.error(`Ignoring unreadable ${DB_PATH}: ${err.message}`);
+    return {};
+  }
 }
 
 function save(tickets) {
@@ -49,8 +58,12 @@ function getAllTrackedKeys() {
   return Object.keys(load());
 }
 
+function isTracked(key) {
+  return key in load();
+}
+
 function getAllTickets() {
   return Object.values(load()).sort((a, b) => (b.lastSynced || "").localeCompare(a.lastSynced || ""));
 }
 
-module.exports = { upsertFromSlack, refreshExisting, getAllTrackedKeys, getAllTickets };
+module.exports = { upsertFromSlack, refreshExisting, getAllTrackedKeys, getAllTickets, isTracked };

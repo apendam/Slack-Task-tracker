@@ -20,7 +20,23 @@ async function syncAllTickets(logger) {
 
 function startSyncJob(logger) {
   const minutes = Number(process.env.SYNC_INTERVAL_MINUTES || 30);
-  cron.schedule(`*/${minutes} * * * *`, () => syncAllTickets(logger));
+  let running = false;
+
+  cron.schedule(`*/${minutes} * * * *`, async () => {
+    // A slow JIRA response or a large tracked list could otherwise still be
+    // mid-sync when the next tick fires, doubling up API calls.
+    if (running) {
+      logger.warn("Skipping this sync tick - previous refresh still running");
+      return;
+    }
+    running = true;
+    try {
+      await syncAllTickets(logger);
+    } finally {
+      running = false;
+    }
+  });
+
   logger.info(`Scheduled JIRA status refresh every ${minutes} minute(s)`);
 }
 
