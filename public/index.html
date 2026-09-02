@@ -7,41 +7,41 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>Task Tracker</h1>
-    <p class="subtitle">JIRA tickets posted in Slack, kept in sync automatically.</p>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon">&#10003;</span>
+      <div class="brand-text">
+        <strong>TASK TRACKER</strong>
+        <span>JIRA tickets posted in Slack</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="lastRefreshed" class="muted-text"></span>
+      <button id="refreshBtn" class="btn-accent">Refresh</button>
+    </div>
   </header>
 
-  <section class="stats" id="stats"></section>
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-bucket="">All <span class="count" id="count-"></span></button>
+    <button class="tab" data-bucket="todo">To Do <span class="count" id="count-todo"></span></button>
+    <button class="tab" data-bucket="progress">In Progress <span class="count" id="count-progress"></span></button>
+    <button class="tab" data-bucket="done">Done <span class="count" id="count-done"></span></button>
+  </nav>
 
   <section class="controls">
     <input id="search" type="search" placeholder="Search key, summary, assignee…" />
-    <select id="statusFilter">
-      <option value="">All statuses</option>
-    </select>
     <select id="assigneeFilter">
       <option value="">All assignees</option>
     </select>
+    <select id="sortSelect">
+      <option value="lastSynced">Sort: Last synced</option>
+      <option value="raisedDate">Sort: Raised date</option>
+      <option value="key">Sort: Ticket key</option>
+      <option value="assignee">Sort: Assignee</option>
+    </select>
   </section>
 
-  <div class="table-wrap">
-    <table id="table">
-      <thead>
-        <tr>
-          <th data-key="key">Ticket</th>
-          <th data-key="summary">Summary</th>
-          <th data-key="status">Status</th>
-          <th data-key="priority">Priority</th>
-          <th data-key="assignee">Assignee</th>
-          <th data-key="reporter">Reporter</th>
-          <th data-key="raisedDate">Raised</th>
-          <th data-key="postedBy">Posted By</th>
-          <th data-key="lastSynced">Last Synced</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
+  <section id="list" class="list"></section>
 
   <p id="empty" class="empty" hidden>No tickets tracked yet — post a JIRA link in Slack to get started.</p>
 

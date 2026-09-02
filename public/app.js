@@ -1,13 +1,15 @@
 let tickets = [];
+let activeBucket = "";
 let sortKey = "lastSynced";
-let sortDir = -1;
 
-const rowsEl = document.getElementById("rows");
-const statsEl = document.getElementById("stats");
+const listEl = document.getElementById("list");
 const emptyEl = document.getElementById("empty");
 const searchEl = document.getElementById("search");
-const statusFilterEl = document.getElementById("statusFilter");
 const assigneeFilterEl = document.getElementById("assigneeFilter");
+const sortSelectEl = document.getElementById("sortSelect");
+const lastRefreshedEl = document.getElementById("lastRefreshed");
+const refreshBtn = document.getElementById("refreshBtn");
+const tabsEl = document.getElementById("tabs");
 
 function statusClass(status) {
   const s = (status || "").toLowerCase();
@@ -16,91 +18,87 @@ function statusClass(status) {
   return "todo";
 }
 
-function fmtDate(iso) {
+function timeAgo(iso) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
 }
 
-function populateFilterOptions(select, values, placeholder) {
-  const current = select.value;
-  select.innerHTML = `<option value="">${placeholder}</option>`;
-  [...new Set(values)].sort().forEach((v) => {
+function populateAssigneeOptions() {
+  const current = assigneeFilterEl.value;
+  const names = [...new Set(tickets.map((t) => t.assignee).filter(Boolean))].sort();
+  assigneeFilterEl.innerHTML = `<option value="">All assignees</option>`;
+  names.forEach((name) => {
     const opt = document.createElement("option");
-    opt.value = v;
-    opt.textContent = v;
-    select.appendChild(opt);
+    opt.value = name;
+    opt.textContent = name;
+    assigneeFilterEl.appendChild(opt);
   });
-  select.value = current;
+  assigneeFilterEl.value = current;
 }
 
-function renderStats() {
-  const byStatus = {};
-  tickets.forEach((t) => {
-    const bucket = statusClass(t.status);
-    byStatus[bucket] = (byStatus[bucket] || 0) + 1;
+function updateTabCounts() {
+  const counts = { "": tickets.length, todo: 0, progress: 0, done: 0 };
+  tickets.forEach((t) => counts[statusClass(t.status)]++);
+  Object.entries(counts).forEach(([bucket, count]) => {
+    const el = document.getElementById(`count-${bucket}`);
+    if (el) el.textContent = `(${count})`;
   });
-
-  const cards = [
-    { label: "Total", value: tickets.length },
-    { label: "To Do", value: byStatus.todo || 0 },
-    { label: "In Progress", value: byStatus.progress || 0 },
-    { label: "Done", value: byStatus.done || 0 },
-  ];
-
-  statsEl.innerHTML = cards
-    .map((c) => `<div class="stat"><div class="value">${c.value}</div><div class="label">${c.label}</div></div>`)
-    .join("");
 }
 
 function applyFiltersAndSort() {
   const search = searchEl.value.trim().toLowerCase();
-  const status = statusFilterEl.value;
   const assignee = assigneeFilterEl.value;
 
   let rows = tickets.filter((t) => {
-    if (status && t.status !== status) return false;
+    if (activeBucket && statusClass(t.status) !== activeBucket) return false;
     if (assignee && t.assignee !== assignee) return false;
     if (!search) return true;
-    return [t.key, t.summary, t.assignee, t.reporter]
-      .join(" ")
-      .toLowerCase()
-      .includes(search);
+    return [t.key, t.summary, t.assignee, t.reporter].join(" ").toLowerCase().includes(search);
   });
 
-  rows.sort((a, b) => {
-    const av = (a[sortKey] || "").toString();
-    const bv = (b[sortKey] || "").toString();
-    return av.localeCompare(bv) * sortDir;
-  });
-
+  rows.sort((a, b) => (b[sortKey] || "").toString().localeCompare((a[sortKey] || "").toString()));
   return rows;
 }
 
+function cardHtml(t) {
+  const postedByLink = t.slackLink
+    ? `<a href="${t.slackLink}" target="_blank" rel="noopener">${t.postedBy || "someone"}</a>`
+    : t.postedBy || "someone";
+
+  return `
+    <div class="card">
+      <div class="card-main">
+        <div class="card-title">
+          <span class="key">${t.key}</span>
+          <span class="summary">${t.summary || "(no summary)"}</span>
+        </div>
+        <div class="card-meta">
+          ${t.assignee || "Unassigned"} · raised ${t.raisedDate || "—"} by ${t.reporter || "—"} · posted by ${postedByLink} · synced ${timeAgo(t.lastSynced)}
+        </div>
+      </div>
+      <div class="card-side">
+        ${t.priority ? `<span class="badge todo">${t.priority}</span>` : ""}
+        <span class="badge ${statusClass(t.status)}">${t.status || "—"}</span>
+        <a href="${t.url}" target="_blank" rel="noopener">Open →</a>
+      </div>
+    </div>`;
+}
+
 function render() {
-  populateFilterOptions(statusFilterEl, tickets.map((t) => t.status).filter(Boolean), "All statuses");
-  populateFilterOptions(assigneeFilterEl, tickets.map((t) => t.assignee).filter(Boolean), "All assignees");
-  renderStats();
+  populateAssigneeOptions();
+  updateTabCounts();
 
   const rows = applyFiltersAndSort();
   emptyEl.hidden = tickets.length > 0;
-
-  rowsEl.innerHTML = rows
-    .map(
-      (t) => `
-    <tr>
-      <td><a href="${t.url}" target="_blank" rel="noopener">${t.key}</a></td>
-      <td class="summary">${t.summary || ""}</td>
-      <td><span class="badge ${statusClass(t.status)}">${t.status || "—"}</span></td>
-      <td>${t.priority || "—"}</td>
-      <td>${t.assignee || "Unassigned"}</td>
-      <td>${t.reporter || "—"}</td>
-      <td>${t.raisedDate || "—"}</td>
-      <td>${t.slackLink ? `<a href="${t.slackLink}" target="_blank" rel="noopener">${t.postedBy || "—"}</a>` : t.postedBy || "—"}</td>
-      <td>${fmtDate(t.lastSynced)}</td>
-    </tr>`
-    )
-    .join("");
+  listEl.innerHTML = rows.map(cardHtml).join("");
+  lastRefreshedEl.textContent = `Updated ${timeAgo(new Date().toISOString())}`;
 }
 
 async function load() {
@@ -109,16 +107,20 @@ async function load() {
   render();
 }
 
-document.querySelectorAll("th[data-key]").forEach((th) => {
-  th.addEventListener("click", () => {
-    const key = th.dataset.key;
-    sortDir = sortKey === key ? -sortDir : 1;
-    sortKey = key;
-    render();
-  });
+tabsEl.addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab");
+  if (!btn) return;
+  activeBucket = btn.dataset.bucket;
+  tabsEl.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === btn));
+  render();
 });
 
-[searchEl, statusFilterEl, assigneeFilterEl].forEach((el) => el.addEventListener("input", render));
+[searchEl, assigneeFilterEl].forEach((el) => el.addEventListener("input", render));
+sortSelectEl.addEventListener("change", () => {
+  sortKey = sortSelectEl.value;
+  render();
+});
+refreshBtn.addEventListener("click", load);
 
 load();
 setInterval(load, 20000);
