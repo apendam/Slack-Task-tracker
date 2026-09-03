@@ -99,6 +99,22 @@ Then open `http://localhost:3000` to see the tracker page.
 Leave `TRACK_CHANNEL_IDS` empty to watch every channel the bot is invited
 to, or set it to a comma-separated list of channel IDs to restrict it.
 
+## Backfilling history
+
+The bot only ever sees messages posted after it starts listening. To pull in
+everything already posted before that (or before the bot was invited to the
+channel), run the one-time backfill script:
+
+```bash
+npm run slack:backfill
+```
+
+It scans the full history of the channel(s) in `TRACK_CHANNEL_IDS` (or pass
+a specific channel ID as an argument: `node scripts/backfill.js C0123456789`),
+finds every JIRA link/key, and tracks anything not already in the tracker —
+same logic as the live listener, so it's safe to re-run any time (already-
+tracked tickets are skipped, not duplicated).
+
 ## Deploying so it stays running and is reachable by your team
 
 Socket Mode keeps a persistent connection, so this needs a long-running
